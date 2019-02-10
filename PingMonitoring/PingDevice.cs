@@ -18,25 +18,32 @@ namespace PingMonitoring
         public void TestConnection(int Count = 1)
         {
             Console.WriteLine("Опрашиваю узел \"" + Name + "\" [" + Address + "]. Попытка №" + Count);
-            PingReply r = Program.PingSender.Send(Address, Timeout);
-            if (r.Status != 0)
+            try
             {
-                Console.WriteLine("Ошибка: " + r.Status);
-                if (Count == MaxCount)
+                PingReply r = Program.PingSender.Send(Address, Timeout);
+                if (r.Status != 0)
                 {
-                    Console.WriteLine("Превышено максимальное число попыток");
-                    Status = r.Status;
-                    Ping = (int)r.RoundtripTime;
+                    Console.WriteLine("Ошибка: " + r.Status);
+                    if (Count == MaxCount)
+                    {
+                        Console.WriteLine("Превышено максимальное число попыток");
+                        Status = r.Status;
+                        Ping = (int)r.RoundtripTime;
+                    }
+                    else
+                    {
+                        TestConnection(Count += 1);
+                    }
                 }
                 else
                 {
-                    TestConnection(Count += 1);
+                    Status = r.Status;
+                    Ping = (int)r.RoundtripTime;
                 }
-            }
-            else
+            } catch (Exception e)
             {
-                Status = r.Status;
-                Ping = (int)r.RoundtripTime;
+                Status = IPStatus.Unknown;
+                Console.WriteLine("Ошибка Ping: "+e.Message);
             }
         }
     }
