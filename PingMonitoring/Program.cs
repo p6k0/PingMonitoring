@@ -24,7 +24,7 @@ namespace PingMonitoring
                 Console.WriteLine("Ошибка: " + e.Message);
             }
 
-            Timer t = new Timer(60000)
+            Timer t = new Timer(30000)
             {
                 AutoReset = true,
                 Enabled = true
@@ -43,7 +43,7 @@ namespace PingMonitoring
             {
                 comm.CommandType = System.Data.CommandType.Text;
                 comm.CommandText = "SELECT `Id`,`Address`,  `Name` FROM `devices` WHERE 1";
-                comm.CacheAge = 60;
+                comm.CacheAge = 30;
 
                 List<PingDevice> pinglist = new List<PingDevice>();
                 using (MySqlDataReader r = comm.ExecuteReader())
@@ -61,11 +61,14 @@ namespace PingMonitoring
                     }
                 }
                 Console.WriteLine("Получено " + pinglist.Count + " устройств");
+                bool Trouble = false;
                 foreach (PingDevice d in pinglist)
                 {
                     d.TestConnection();
                 }
                 Console.WriteLine("Фиксирую изменения в БД");
+                if (Trouble)
+                    Console.Beep(18000, 1000);
 
                 comm.CommandText = "UPDATE `devices` SET `Ping`=@Ping,`Status`=@Status WHERE `Id`=@Id";
 
