@@ -9,14 +9,8 @@ namespace PingMonitoring
 {
     class DBUtils
     {
-        public static MySqlConnection GetDBConnection()
+        public static MySqlConnection GetDBConnection(string host, int port, string database, string username, string password)
         {
-            string host = "127.0.0.1";
-            int port = 3306;
-            string database = "Ping";
-            string username = "root";
-            string password = "kandibober";
-
             return DBMySQLUtils.GetDBConnection(host, port, database, username, password);
         }
 

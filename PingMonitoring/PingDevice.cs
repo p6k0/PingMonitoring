@@ -6,7 +6,7 @@ namespace PingMonitoring
     public class PingDevice
     {
         private const int MaxCount = 3;
-        private const int Timeout = 1000;
+        private const int Timeout = 300;
 
         public int Id;
         public string Address;
@@ -20,7 +20,7 @@ namespace PingMonitoring
             Console.WriteLine("Опрашиваю узел \"" + Name + "\" [" + Address + "]. Попытка №" + Count);
             try
             {
-                PingReply r = Program.PingSender.Send(Address, Timeout);
+                PingReply r = Program.PingSender.Send(Address, Timeout*Count,Program.packet);
                 if (r.Status != 0)
                 {
                     Console.WriteLine("Ошибка: " + r.Status);

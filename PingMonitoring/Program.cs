@@ -1,29 +1,52 @@
 ﻿using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.NetworkInformation;
 using System.Timers;
+using System.Xml;
 
 namespace PingMonitoring
 {
     class Program
     {
-        public static MySqlConnection conn = DBUtils.GetDBConnection();
+
+        public static MySqlConnection conn;
         public static Ping PingSender = new Ping();
+        public static byte[] packet = new byte[0];
 
         static void Main(string[] args)
         {
-            try
-            {
-                Console.WriteLine("Открываю соединение...");
-                conn.Open();
-                Console.WriteLine("Соединение установлено");
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Ошибка: " + e.Message);
-            }
+            XmlDocument cfg = new XmlDocument();
+            cfg.Load(Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location) + @"\config.xml");
 
+            conn = DBUtils.GetDBConnection(
+                    cfg.DocumentElement.SelectSingleNode("IP").InnerText,
+                    Convert.ToInt32(cfg.DocumentElement.SelectSingleNode("Port").InnerText),
+                    cfg.DocumentElement.SelectSingleNode("Db").InnerText,
+                    cfg.DocumentElement.SelectSingleNode("Login").InnerText,
+                    cfg.DocumentElement.SelectSingleNode("Pass").InnerText
+
+            );
+            Console.WriteLine("Ip:\t" + cfg.DocumentElement.SelectSingleNode("IP").InnerText);
+            Console.WriteLine("Порт:\t" + cfg.DocumentElement.SelectSingleNode("Port").InnerText);
+            Console.WriteLine("БД:\t" + conn.Database);
+            Console.WriteLine("Открываю соединение...");
+            while (true)
+            {
+                try
+                {
+
+                    conn.Open();
+                    break;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Ошибка: " + e.Message);
+                }
+                System.Threading.Thread.Sleep(5000);
+            }
+            
             Timer t = new Timer(30000)
             {
                 AutoReset = true,
@@ -78,7 +101,8 @@ namespace PingMonitoring
                     comm.Parameters.Add(new MySqlParameter("@Ping", MySqlDbType.Int32));
                     comm.Parameters.Add(new MySqlParameter("@Status", MySqlDbType.Int32));
                     comm.Parameters.Add(new MySqlParameter("@Id", MySqlDbType.Int32));
-                    foreach (PingDevice d in pinglist) {
+                    foreach (PingDevice d in pinglist)
+                    {
                         comm.Parameters["@Id"].Value = d.Id;
                         comm.Parameters["@Ping"].Value = d.Ping;
                         comm.Parameters["@Status"].Value = d.Status;
