@@ -31,22 +31,7 @@ namespace PingMonitoring
             Console.WriteLine("Ip:\t" + cfg.DocumentElement.SelectSingleNode("IP").InnerText);
             Console.WriteLine("Порт:\t" + cfg.DocumentElement.SelectSingleNode("Port").InnerText);
             Console.WriteLine("БД:\t" + conn.Database);
-            Console.WriteLine("Открываю соединение...");
-            while (true)
-            {
-                try
-                {
 
-                    conn.Open();
-                    break;
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Ошибка: " + e.Message);
-                }
-                System.Threading.Thread.Sleep(5000);
-            }
-            
             Timer t = new Timer(30000)
             {
                 AutoReset = true,
@@ -61,6 +46,22 @@ namespace PingMonitoring
 
         private static void T_Elapsed(object sender, ElapsedEventArgs e)
         {
+            Console.WriteLine("Открываю соединение...");
+            while (true)
+            {
+                try
+                {
+
+                    conn.Open();
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Ошибка: " + ex.Message);
+                }
+                System.Threading.Thread.Sleep(5000);
+            }
+            Console.WriteLine("Соединене открыто...");
             Console.WriteLine("Запрашиваю список устройств для проверки соединения");
             using (MySqlCommand comm = conn.CreateCommand())
             {
@@ -112,7 +113,7 @@ namespace PingMonitoring
                 }
                 Console.WriteLine("Изменения зафиксированы");
             }
-
+            conn.Close();
         }
     }
 }
