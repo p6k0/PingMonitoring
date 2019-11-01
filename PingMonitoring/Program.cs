@@ -31,27 +31,28 @@ namespace PingMonitoring
             Console.WriteLine("Ip:\t" + cfg.DocumentElement.SelectSingleNode("IP").InnerText);
             Console.WriteLine("Порт:\t" + cfg.DocumentElement.SelectSingleNode("Port").InnerText);
             Console.WriteLine("БД:\t" + conn.Database);
-
+           /* ArmdipParser.Update();
+            Console.ReadKey();*/
+            
             Timer t = new Timer(30000)
             {
                 AutoReset = true,
                 Enabled = true
 
             };
-            t.Elapsed += T_Elapsed;
-            T_Elapsed(null, null);
+            t.Elapsed += Elapsed;
+            Elapsed(null, null);
             while (true)
                 Console.ReadKey();
         }
 
-        private static void T_Elapsed(object sender, ElapsedEventArgs e)
+        private static void Elapsed(object sender, ElapsedEventArgs e)
         {
             Console.WriteLine("Открываю соединение...");
             while (true)
             {
                 try
                 {
-
                     conn.Open();
                     break;
                 }
@@ -62,11 +63,43 @@ namespace PingMonitoring
                 System.Threading.Thread.Sleep(5000);
             }
             Console.WriteLine("Соединене открыто...");
+            Console.WriteLine("Получаю сведения по обратному протоколу...");
+            try
+            {
+                TrainboardState[] tsa = ArmdipParser.Update();
+                using (MySqlCommand comm = conn.CreateCommand())
+                {
+                    comm.CommandType = System.Data.CommandType.Text;
+                    comm.CommandText = "INSERT INTO armdip (Esr,Total,Damaged) VALUES(@esr,@total,@damaged) ON DUPLICATE KEY UPDATE total = @total, damaged = @damaged;";
+                    comm.CacheAge = 30;
+                    comm.Parameters.Add(new MySqlParameter("@esr", MySqlDbType.Int32));
+                    comm.Parameters.Add(new MySqlParameter("@total", MySqlDbType.Byte));
+                    comm.Parameters.Add(new MySqlParameter("@damaged", MySqlDbType.Byte));
+                    foreach (TrainboardState ts in tsa)
+                    {
+                        comm.Parameters["@esr"].Value = ts.Esr;
+                        comm.Parameters["@total"].Value = ts.Total;
+                        comm.Parameters["@damaged"].Value = ts.Damaged;
+                        comm.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Не удалось обновить список обратного протокола: " + ex.Message);
+                using (MySqlCommand comm = conn.CreateCommand())
+                {
+                    comm.CommandType = System.Data.CommandType.Text;
+                    comm.CommandText = "Update Damaged=127 where 1;";
+                    comm.ExecuteNonQuery();
+                }
+            }
+                                 
             Console.WriteLine("Запрашиваю список устройств для проверки соединения");
             using (MySqlCommand comm = conn.CreateCommand())
             {
                 comm.CommandType = System.Data.CommandType.Text;
-                comm.CommandText = "SELECT `Id`,`Address`,  `Name` FROM `devices` WHERE 1";
+                comm.CommandText = "SELECT `Id`,`Ip`, `Name` FROM `stations` WHERE Ip is not null";
                 comm.CacheAge = 30;
 
                 List<PingDevice> pinglist = new List<PingDevice>();
@@ -94,7 +127,8 @@ namespace PingMonitoring
                 if (Trouble)
                     Console.Beep(18000, 1000);
 
-                comm.CommandText = "UPDATE `devices` SET `Ping`=@Ping,`Status`=@Status WHERE `Id`=@Id";
+                comm.CommandText = "INSERT INTO ping(StationId, Ping, PingStatus) VALUES(@Id, @Ping, @Status) ON DUPLICATE KEY UPDATE Ping = @Ping, PingStatus = @Status;";
+
 
                 using (MySqlTransaction t = conn.BeginTransaction())
                 {
