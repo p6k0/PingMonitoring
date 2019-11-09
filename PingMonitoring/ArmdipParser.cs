@@ -14,9 +14,9 @@ namespace PingMonitoring
     class ArmdipParser
     {
 
-        private static Regex regex = new Regex(@"esr=(\d{2,6})");
+        private static readonly Regex regex = new Regex(@"esr=(\d{2,6})");
         public static string Url = "http://127.0.0.1:10101/armdip.html";
-        private static HtmlParser parser = new HtmlParser();
+        private static readonly HtmlParser parser = new HtmlParser();
         private static readonly char[] chr = new char[] { '/', ' ' };
         public static TrainboardState[] Update()
         {

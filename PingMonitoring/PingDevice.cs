@@ -5,7 +5,7 @@ namespace PingMonitoring
 {
     public class PingDevice
     {
-        private const int MaxCount = 3;
+        private const int MaxCount = 4;
         private const int Timeout = 300;
 
         public int Id;
@@ -14,6 +14,15 @@ namespace PingMonitoring
 
         public IPStatus Status;
         public int Ping = 0;
+
+        public PingDevice(int Id,string Address,string Name)
+        {
+            this.Id = Id;
+            this.Address = Address;
+            this.Name = Name;
+            TestConnection();
+        }
+
 
         public void TestConnection(int Count = 1)
         {

@@ -14,8 +14,9 @@ namespace PingMonitoring
         public static MySqlConnection conn;
         public static Ping PingSender = new Ping();
         public static byte[] packet = new byte[0];
+        public static bool inWork = false;
 
-        static void Main(string[] args)
+        static void Main()
         {
             XmlDocument cfg = new XmlDocument();
             cfg.Load(Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location) + @"\config.xml");
@@ -31,14 +32,12 @@ namespace PingMonitoring
             Console.WriteLine("Ip:\t" + cfg.DocumentElement.SelectSingleNode("IP").InnerText);
             Console.WriteLine("Порт:\t" + cfg.DocumentElement.SelectSingleNode("Port").InnerText);
             Console.WriteLine("БД:\t" + conn.Database);
-           /* ArmdipParser.Update();
-            Console.ReadKey();*/
-            
+            ArmdipParser.Url = cfg.DocumentElement.SelectSingleNode("armdip").InnerText;
+
             Timer t = new Timer(30000)
             {
                 AutoReset = true,
                 Enabled = true
-
             };
             t.Elapsed += Elapsed;
             Elapsed(null, null);
@@ -48,21 +47,31 @@ namespace PingMonitoring
 
         private static void Elapsed(object sender, ElapsedEventArgs e)
         {
-            Console.WriteLine("Открываю соединение...");
-            while (true)
+            if (inWork)
             {
-                try
+                Console.WriteLine("Предыдущая операция еще не завершена, пропуск опроса");
+                return;
+            }
+            inWork = true;
+            if (conn.State != System.Data.ConnectionState.Open)
+            {
+                Console.WriteLine("Открываю соединение...");
+                while (true)
                 {
-                    conn.Open();
-                    break;
+                    try
+                    {
+                        conn.Open();
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("Ошибка: " + ex.Message);
+                    }
+                    System.Threading.Thread.Sleep(5000);
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("Ошибка: " + ex.Message);
-                }
-                System.Threading.Thread.Sleep(5000);
             }
             Console.WriteLine("Соединене открыто...");
+            #region Обратный протокол
             Console.WriteLine("Получаю сведения по обратному протоколу...");
             try
             {
@@ -90,11 +99,13 @@ namespace PingMonitoring
                 using (MySqlCommand comm = conn.CreateCommand())
                 {
                     comm.CommandType = System.Data.CommandType.Text;
-                    comm.CommandText = "Update Damaged=127 where 1;";
+                    comm.CommandText = "Update `armdip` set Damaged=127 where 1;";
                     comm.ExecuteNonQuery();
                 }
             }
-                                 
+            #endregion
+
+
             Console.WriteLine("Запрашиваю список устройств для проверки соединения");
             using (MySqlCommand comm = conn.CreateCommand())
             {
@@ -104,28 +115,16 @@ namespace PingMonitoring
 
                 List<PingDevice> pinglist = new List<PingDevice>();
                 using (MySqlDataReader r = comm.ExecuteReader())
-                {
-                    PingDevice d;
                     while (r.Read())
-                    {
-                        d = new PingDevice()
-                        {
-                            Id = r.GetInt32(0),
-                            Address = r.GetString(1),
-                            Name = r.GetString(2)
-                        };
-                        pinglist.Add(d);
-                    }
-                }
-                Console.WriteLine("Получено " + pinglist.Count + " устройств");
-                bool Trouble = false;
-                foreach (PingDevice d in pinglist)
-                {
-                    d.TestConnection();
-                }
+                        pinglist.Add(
+                            new PingDevice(
+                                r.GetInt32(0),
+                                r.GetString(1),
+                                r.GetString(2)
+                                )
+                            );
+                Console.WriteLine("Опрошено " + pinglist.Count + " устройств");
                 Console.WriteLine("Фиксирую изменения в БД");
-                if (Trouble)
-                    Console.Beep(18000, 1000);
 
                 comm.CommandText = "INSERT INTO ping(StationId, Ping, PingStatus) VALUES(@Id, @Ping, @Status) ON DUPLICATE KEY UPDATE Ping = @Ping, PingStatus = @Status;";
 
@@ -146,8 +145,12 @@ namespace PingMonitoring
                     t.Commit();
                 }
                 Console.WriteLine("Изменения зафиксированы");
+
+                comm.CommandText = "INSERT INTO `appinfo`(`Value`, `CodeName`) VALUES (NOW(),'LastUpdate') ON DUPLICATE KEY UPDATE Value=Now();";
+                comm.ExecuteNonQuery();
             }
             conn.Close();
+            inWork = false;
         }
     }
 }
